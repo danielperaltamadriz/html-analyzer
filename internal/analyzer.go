@@ -1,6 +1,9 @@
 package internal
 
 import (
+	"context"
+	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/danielperaltamadriz/home24/internal/models"
@@ -8,34 +11,37 @@ import (
 )
 
 type SearchElement func(n *html.Node) bool
-type analyzer struct {
+type Analyzer struct {
 	result models.HTMLDetails
 	url    string
+	ctx    context.Context
+	req    *http.Request
+	node   *html.Node
 
 	searchSingleElements []SearchElement
 	singleSearchesDone   map[int]bool
 	searchManyElements   []SearchElement
 }
 
-func NewAnalyzer() *analyzer {
-	return &analyzer{
+func NewAnalyzer() *Analyzer {
+	return &Analyzer{
 		singleSearchesDone: make(map[int]bool),
 	}
 }
 
-func (a *analyzer) WithURL(url string) {
+func (a *Analyzer) RequestURL(url string) {
 	a.url = url
 }
 
-func (a *analyzer) WithSearchSingleElements(searchElements ...SearchElement) {
+func (a *Analyzer) WithSearchSingleElements(searchElements ...SearchElement) {
 	a.searchSingleElements = searchElements
 }
 
-func (a *analyzer) WithSearchManyElements(searchElements ...SearchElement) {
+func (a *Analyzer) WithSearchManyElements(searchElements ...SearchElement) {
 	a.searchManyElements = searchElements
 }
 
-func (a *analyzer) Run(node *html.Node) models.HTMLDetails {
+func (a *Analyzer) Run(node *html.Node) models.HTMLDetails {
 	var f func(*html.Node) bool
 	f = func(n *html.Node) bool {
 		for i, searchElement := range a.searchSingleElements {
@@ -64,7 +70,44 @@ func (a *analyzer) Run(node *html.Node) models.HTMLDetails {
 	return a.result
 }
 
-func (a *analyzer) HTMLVersion(n *html.Node) bool {
+func (a *Analyzer) RunFromURL(url string) (*models.HTMLDetails, error) {
+	a.RequestURL(url)
+	if err := a.requestHTML(); err != nil {
+		return nil, err
+	}
+	details := a.Run(a.node)
+	return &details, nil
+}
+
+func (a *Analyzer) requestHTML() error {
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	a.req = req
+	resp, err := http.Get(a.url)
+	if err != nil {
+		return fmt.Errorf("failed to get url: %w", err)
+	}
+	defer resp.Body.Close()
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "text/html") {
+		return fmt.Errorf("invalid content type")
+	}
+
+	doc, err := html.Parse(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to parse html: %w", err)
+	}
+	a.node = doc
+	return nil
+}
+
+func (a *Analyzer) HTMLVersion(n *html.Node) bool {
 	if n.Type != html.DoctypeNode {
 		return false
 	}
@@ -90,7 +133,7 @@ func (a *analyzer) HTMLVersion(n *html.Node) bool {
 	return true
 }
 
-func (a *analyzer) Title(n *html.Node) bool {
+func (a *Analyzer) Title(n *html.Node) bool {
 	if n.Type == html.ElementNode && n.Data == "title" {
 		a.result.Title = n.FirstChild.Data
 		return true
@@ -98,7 +141,7 @@ func (a *analyzer) Title(n *html.Node) bool {
 	return false
 }
 
-func (a *analyzer) Headings(n *html.Node) bool {
+func (a *Analyzer) Headings(n *html.Node) bool {
 	if n.Type == html.ElementNode {
 		var heading models.Heading
 		switch models.Heading(n.Data) {
@@ -126,7 +169,7 @@ func (a *analyzer) Headings(n *html.Node) bool {
 	return false
 }
 
-func (a *analyzer) Links(n *html.Node) bool {
+func (a *Analyzer) Links(n *html.Node) bool {
 	if n.Type == html.ElementNode && n.Data == "a" {
 		for _, attr := range n.Attr {
 			if attr.Key == "href" {

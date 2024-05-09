@@ -14,8 +14,7 @@ const (
 )
 
 type API struct {
-	htmlService HTMLService
-	server      *http.Server
+	server *http.Server
 }
 
 type APIConfig struct {
@@ -27,7 +26,6 @@ func NewAPI(cfg APIConfig) *API {
 		cfg.Port = _defaultPort
 	}
 	return &API{
-		htmlService: *NewHTMLService(),
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%d", cfg.Port),
 		},
@@ -91,12 +89,20 @@ func (a *API) Start() error {
 func (a *API) HTMLHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Request received")
 	w.Header().Set("Content-Type", "application/json")
-	nodes, err := a.htmlService.Get(r.FormValue("url"))
+	analyzer := NewAnalyzer()
+	analyzer.WithSearchSingleElements(
+		analyzer.HTMLVersion,
+		analyzer.Title,
+	)
+	analyzer.WithSearchManyElements(
+		analyzer.Headings,
+		analyzer.Links,
+	)
+	details, err := analyzer.RunFromURL(r.FormValue("url"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	details := a.htmlService.GetDetails(nodes)
 	response := DetailsResponse{
 		Title:    details.Title,
 		Version:  mapVersion(details.Version),

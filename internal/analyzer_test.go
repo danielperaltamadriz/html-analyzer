@@ -1,7 +1,6 @@
 package internal_test
 
 import (
-	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"github.com/danielperaltamadriz/home24/internal"
 	"github.com/danielperaltamadriz/home24/internal/models"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/html"
 )
 
 var (
@@ -43,10 +41,10 @@ func (suite *serviceTestSuite) TestGetValidHTMLUsingRealServer() {
 		},
 	}
 
-	service := internal.NewHTMLService()
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			result, err := service.Get(tc.inputURL)
+			analyzer := internal.NewAnalyzer()
+			result, err := analyzer.RunFromURL(tc.inputURL)
 			suite.NoError(err)
 			suite.NotNil(result)
 		})
@@ -68,12 +66,12 @@ func (suite *serviceTestSuite) TestGetValidHTMLUsingFakeServer() {
 		},
 	}
 
-	service := internal.NewHTMLService()
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			fakeServer := suite.httptestSetup(*tc.fakeServerSetup)
 			defer fakeServer.Close()
-			result, err := service.Get(fakeServer.URL)
+			analyzer := internal.NewAnalyzer()
+			result, err := analyzer.RunFromURL(fakeServer.URL)
 			suite.NoError(err)
 			suite.NotNil(result)
 		})
@@ -97,34 +95,60 @@ func (suite *serviceTestSuite) TestGetInvalidHTML() {
 		},
 	}
 
-	service := internal.NewHTMLService()
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			fakeServer := suite.httptestSetup(*tc.fakeServerSetup)
 			defer fakeServer.Close()
-			result, err := service.Get(fakeServer.URL)
+			analyzer := internal.NewAnalyzer()
+			result, err := analyzer.RunFromURL(fakeServer.URL)
 			suite.Nil(result)
 			suite.ErrorContains(err, tc.errMessageString)
 		})
 	}
 }
 
-func (suite *serviceTestSuite) TestGetHTMLDetails() {
-	testCases := []struct {
-		name     string
-		htmlPath string
+type getDetailsTestCase struct {
+	name     string
+	htmlPath string
 
-		expectedDetails models.HTMLDetails
-	}{
+	expectedDetails models.HTMLDetails
+}
+
+func (suite *serviceTestSuite) TestGetTitle() {
+	testCases := []getDetailsTestCase{
 		{
 			name:     " get title from html",
 			htmlPath: "testdata/title.html",
 
 			expectedDetails: models.HTMLDetails{
-				Version: HTMLVersion5,
-				Title:   "Title",
+				Title: "Title",
 			},
 		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			analyzer := internal.NewAnalyzer()
+			analyzer.WithSearchSingleElements(analyzer.Title)
+			suite.setupTestGetDetails(tc, analyzer)
+		})
+	}
+}
+
+func (suite *serviceTestSuite) setupTestGetDetails(tc getDetailsTestCase, analyzer *internal.Analyzer) {
+	fakeServer := suite.httptestSetup(setupHTTPTest{
+		statusCode:   http.StatusOK,
+		htmlFilePath: tc.htmlPath,
+		contentType:  "text/html",
+	})
+	defer fakeServer.Close()
+	details, err := analyzer.RunFromURL(fakeServer.URL)
+	suite.NoError(err)
+	suite.Equal(&tc.expectedDetails, details)
+}
+
+func (suite *serviceTestSuite) TestGetHTMLVersion() {
+	testCases := []getDetailsTestCase{
 		{
 			name:     "get html version 5",
 			htmlPath: "testdata/html5.html",
@@ -141,12 +165,24 @@ func (suite *serviceTestSuite) TestGetHTMLDetails() {
 				Version: HTMLVersion401_STRICT,
 			},
 		},
+	}
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			analyzer := internal.NewAnalyzer()
+			analyzer.WithSearchSingleElements(analyzer.HTMLVersion)
+			suite.setupTestGetDetails(tc, analyzer)
+		})
+	}
+
+}
+
+func (suite *serviceTestSuite) TestGetHeadings() {
+	testCases := []getDetailsTestCase{
 		{
 			name:     "get html with many headings",
 			htmlPath: "testdata/headings.html",
 
 			expectedDetails: models.HTMLDetails{
-				Version: HTMLVersion5,
 				HeadingsCounter: map[models.Heading]int{
 					models.H1: 2,
 					models.H2: 1,
@@ -157,12 +193,23 @@ func (suite *serviceTestSuite) TestGetHTMLDetails() {
 				},
 			},
 		},
+	}
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			analyzer := internal.NewAnalyzer()
+			analyzer.WithSearchManyElements(analyzer.Headings)
+			suite.setupTestGetDetails(tc, analyzer)
+		})
+	}
+}
+
+func (suite *serviceTestSuite) TestGetLinks() {
+	testCases := []getDetailsTestCase{
 		{
 			name:     "get all internal links",
 			htmlPath: "testdata/internal_links.html",
 
 			expectedDetails: models.HTMLDetails{
-				Version: HTMLVersion5,
 				Links: models.Links{
 					"#link1": {
 						URL:   "#link1",
@@ -181,7 +228,6 @@ func (suite *serviceTestSuite) TestGetHTMLDetails() {
 			name:     "get all external links",
 			htmlPath: "testdata/external_links.html",
 			expectedDetails: models.HTMLDetails{
-				Version: HTMLVersion5,
 				Links: models.Links{
 					"https://google.com": {
 						URL:        "https://google.com",
@@ -200,19 +246,11 @@ func (suite *serviceTestSuite) TestGetHTMLDetails() {
 		},
 	}
 
-	service := internal.NewHTMLService()
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			htmlFile, err := openFile(tc.htmlPath)
-			if err != nil {
-				suite.FailNow("failed to open html file")
-			}
-			suite.NotNil(htmlFile)
-			doc, err := html.Parse(bytes.NewReader(htmlFile))
-			suite.NoError(err)
-			suite.NotNil(doc)
-			details := service.GetDetails(doc)
-			suite.Equal(tc.expectedDetails, details)
+			analyzer := internal.NewAnalyzer()
+			analyzer.WithSearchManyElements(analyzer.Links)
+			suite.setupTestGetDetails(tc, analyzer)
 		})
 	}
 }
