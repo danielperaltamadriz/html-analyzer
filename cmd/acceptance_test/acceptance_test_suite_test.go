@@ -33,16 +33,51 @@ var _ = Describe("Analyze HTML", func() {
 		server.Close()
 	})
 
+	Context("Given a not found URL", func() {
+		When("the HTML is requested", func() {
+			var statusCode int
+			BeforeEach(func() {
+				ts := httptestSetup(setupHTTPTest{
+					statusCode:   http.StatusNotFound,
+					htmlFilePath: "./testdata/file.html",
+				})
+				defer ts.Close()
+				resp, _ := http.Get(server.URL() + "?url=" + ts.URL)
+				statusCode = resp.StatusCode
+			})
+
+			It("should return a 404 status code", func() {
+				Expect(statusCode).To(Equal(http.StatusNotFound))
+			})
+		})
+	})
+
+	Context("Given an invalid URL", func() {
+		When("the HTML is requested", func() {
+			var statusCode int
+			BeforeEach(func() {
+				resp, err := http.Get(server.URL() + "?url=invalid_url")
+				Expect(err).To(BeNil())
+				statusCode = resp.StatusCode
+			})
+
+			It("should return a 400 status code", func() {
+				Expect(statusCode).To(Equal(http.StatusBadRequest))
+			})
+		})
+	})
+
 	Context("Given a valid URL", func() {
 		When("a simple HTML is requested", func() {
 			var details *internal.DetailsResponse
+			var url string
 			BeforeEach(func() {
 				ts := httptestSetup(setupHTTPTest{
 					statusCode:   http.StatusOK,
 					htmlFilePath: "./testdata/file.html",
 				})
 				defer ts.Close()
-
+				url = ts.URL
 				resp, _ := http.Get(server.URL() + "?url=" + ts.URL)
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
 				defer resp.Body.Close()
@@ -71,12 +106,14 @@ var _ = Describe("Analyze HTML", func() {
 				Expect(details.Links.Internal.Total).To(Equal(2))
 				Expect(mapLinkDetailsToMap(details.Links.Internal.LinkDetails)).To(Equal(mapLinkDetailsToMap([]internal.LinkDetailResponse{
 					{
-						URL:   "#link1",
-						Count: 1,
+						URL:          url + "#link1",
+						Count:        1,
+						IsAccessible: true,
 					},
 					{
-						URL:   "#link2",
-						Count: 1,
+						URL:          url + "#link2",
+						Count:        1,
+						IsAccessible: true,
 					},
 				})))
 			})
@@ -97,9 +134,14 @@ var _ = Describe("Analyze HTML", func() {
 				})))
 			})
 
+			It("should return it has a login form", func() {
+				Expect(details.HasLoginForm).To(Equal(true))
+			})
+
 		})
 		When("a complex HTML is requested", func() {
 			It("should return the title and valid status code", func() {
+				Skip("This test is skipped because it depends on the external URL")
 				ts := httptestSetup(setupHTTPTest{
 					statusCode:   http.StatusOK,
 					htmlFilePath: "./testdata/scrapeme.html",

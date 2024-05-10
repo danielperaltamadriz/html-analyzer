@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -65,10 +66,11 @@ type LinksResponse struct {
 }
 
 type DetailsResponse struct {
-	Title    string           `json:"title"`
-	Version  *VersionResponse `json:"version,omitempty"`
-	Headings HeadingResponse  `json:"headings"`
-	Links    LinksResponse    `json:"links"`
+	Title        string           `json:"title"`
+	Version      *VersionResponse `json:"version,omitempty"`
+	Headings     HeadingResponse  `json:"headings"`
+	Links        LinksResponse    `json:"links"`
+	HasLoginForm bool             `json:"has_login_form"`
 }
 
 func (a *API) Shutdown() error {
@@ -90,30 +92,45 @@ func (a *API) HTMLHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Request received")
 	w.Header().Set("Content-Type", "application/json")
 	analyzer := NewAnalyzer()
-	analyzer.WithSearchSingleElements(
-		analyzer.HTMLVersion,
-		analyzer.Title,
-	)
-	analyzer.WithSearchManyElements(
-		analyzer.Headings,
-		analyzer.Links,
-	)
+	analyzer.WithSearchSingleElements(analyzer.HTMLVersion, analyzer.Title, analyzer.HasLoginForm)
+	analyzer.WithSearchManyElements(analyzer.Headings, analyzer.Links)
 	details, err := analyzer.RunFromURL(r.FormValue("url"))
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		mapError(w, err)
 		return
 	}
 	response := DetailsResponse{
-		Title:    details.Title,
-		Version:  mapVersion(details.Version),
-		Headings: mapHeadings(details.HeadingsCounter),
-		Links:    mapLinks(details.Links),
+		Title:        details.Title,
+		Version:      mapVersion(details.Version),
+		Headings:     mapHeadings(details.HeadingsCounter),
+		Links:        mapLinks(details.Links),
+		HasLoginForm: details.HasLoginForm,
 	}
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func mapError(w http.ResponseWriter, err error) {
+	var e *models.Error
+	errUnwrap := errors.Unwrap(err)
+	if errUnwrap != nil {
+		err = errUnwrap
+	}
+	if errors.As(err, &e) {
+		switch e.Type {
+		case models.ErrInvalidRequest:
+			w.WriteHeader(e.ResponseStatusCode)
+			return
+		case models.ErrTypeInvalidURL:
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusInternalServerError)
+
 }
 
 func mapVersion(version *models.HTMLVersion) *VersionResponse {
@@ -150,12 +167,16 @@ func mapHeadings(headings map[models.Heading]int) HeadingResponse {
 func mapLinks(links models.Links) LinksResponse {
 	return LinksResponse{
 		Internal: LinkTypeResponse{
-			Total:       links.CountInternalLinks(),
-			LinkDetails: mapLinkDetailsResponse(links.GetInternalLinks()),
+			Total:             links.CountInternalLinks(),
+			TotalAccessible:   links.CountInternalLinksAccessible(),
+			TotalInaccessible: links.CountInternalLinksInaccessible(),
+			LinkDetails:       mapLinkDetailsResponse(links.GetInternalLinks()),
 		},
 		External: LinkTypeResponse{
-			Total:       links.CountExternalLinks(),
-			LinkDetails: mapLinkDetailsResponse(links.GetExternalLinks()),
+			Total:             links.CountExternalLinks(),
+			TotalAccessible:   links.CountExternalLinksAccessible(),
+			TotalInaccessible: links.CountExternalLinksInaccessible(),
+			LinkDetails:       mapLinkDetailsResponse(links.GetExternalLinks()),
 		},
 	}
 }

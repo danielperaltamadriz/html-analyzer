@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/danielperaltamadriz/home24/internal"
@@ -68,7 +69,7 @@ func (suite *serviceTestSuite) TestGetValidHTMLUsingFakeServer() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			fakeServer := suite.httptestSetup(*tc.fakeServerSetup)
+			fakeServer := suite.httptestSetup(tc.fakeServerSetup)
 			defer fakeServer.Close()
 			analyzer := internal.NewAnalyzer()
 			result, err := analyzer.RunFromURL(fakeServer.URL)
@@ -93,14 +94,32 @@ func (suite *serviceTestSuite) TestGetInvalidHTML() {
 			},
 			errMessageString: "invalid content type",
 		},
+		{
+			name: "Get HTML from not found URL",
+			fakeServerSetup: &setupHTTPTest{
+				statusCode:   http.StatusNotFound,
+				htmlFilePath: "testdata/html.html",
+				contentType:  "text/html",
+			},
+			errMessageString: "invalid status code",
+		},
+		{
+			name:             "Get HTML from invalid URL",
+			fakeServerSetup:  nil,
+			errMessageString: "invalid url",
+		},
 	}
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			fakeServer := suite.httptestSetup(*tc.fakeServerSetup)
-			defer fakeServer.Close()
+			fakeServer := suite.httptestSetup(tc.fakeServerSetup)
+			url := "/url"
+			if tc.fakeServerSetup != nil {
+				defer fakeServer.Close()
+				url = fakeServer.URL
+			}
 			analyzer := internal.NewAnalyzer()
-			result, err := analyzer.RunFromURL(fakeServer.URL)
+			result, err := analyzer.RunFromURL(url)
 			suite.Nil(result)
 			suite.ErrorContains(err, tc.errMessageString)
 		})
@@ -133,18 +152,6 @@ func (suite *serviceTestSuite) TestGetTitle() {
 			suite.setupTestGetDetails(tc, analyzer)
 		})
 	}
-}
-
-func (suite *serviceTestSuite) setupTestGetDetails(tc getDetailsTestCase, analyzer *internal.Analyzer) {
-	fakeServer := suite.httptestSetup(setupHTTPTest{
-		statusCode:   http.StatusOK,
-		htmlFilePath: tc.htmlPath,
-		contentType:  "text/html",
-	})
-	defer fakeServer.Close()
-	details, err := analyzer.RunFromURL(fakeServer.URL)
-	suite.NoError(err)
-	suite.Equal(&tc.expectedDetails, details)
 }
 
 func (suite *serviceTestSuite) TestGetHTMLVersion() {
@@ -212,14 +219,22 @@ func (suite *serviceTestSuite) TestGetLinks() {
 			expectedDetails: models.HTMLDetails{
 				Links: models.Links{
 					"#link1": {
-						URL:   "#link1",
-						Count: 1,
-						Type:  models.LinkTypeInternal,
+						URL:        "#link1",
+						Count:      1,
+						Type:       models.LinkTypeInternal,
+						Accessible: true,
 					},
-					"#link2": {
-						URL:   "#link2",
-						Count: 1,
-						Type:  models.LinkTypeInternal,
+					"/link2": {
+						URL:        "/link2",
+						Count:      1,
+						Type:       models.LinkTypeInternal,
+						Accessible: true,
+					},
+					"/link3": {
+						URL:        "/link3",
+						Count:      1,
+						Type:       models.LinkTypeInternal,
+						Accessible: false,
 					},
 				},
 			},
@@ -233,7 +248,7 @@ func (suite *serviceTestSuite) TestGetLinks() {
 						URL:        "https://google.com",
 						Count:      1,
 						Type:       models.LinkTypeExternal,
-						Accessible: true,
+						Accessible: false,
 					},
 					"https://home24.de": {
 						URL:        "https://home24.de",
@@ -246,13 +261,99 @@ func (suite *serviceTestSuite) TestGetLinks() {
 		},
 	}
 
+	fakeLinkVerifierFunc := func(l *models.Link) bool {
+		if strings.Contains(l.URL, "google") {
+			return false
+		}
+		if strings.Contains(l.URL, "/link3") {
+			return false
+		}
+		return true
+	}
+
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			analyzer := internal.NewAnalyzer()
 			analyzer.WithSearchManyElements(analyzer.Links)
+			analyzer.WithLinkVerifierFunc(fakeLinkVerifierFunc)
+			fakeServer := suite.httptestSetup(&setupHTTPTest{
+				statusCode:   http.StatusOK,
+				htmlFilePath: tc.htmlPath,
+				contentType:  "text/html",
+			})
+			defer fakeServer.Close()
+			details, err := analyzer.RunFromURL(fakeServer.URL + "/path")
+			suite.NoError(err)
+			if _, ok := tc.expectedDetails.Links["#link1"]; ok {
+				tc.expectedDetails.Links[fakeServer.URL+"/path#link1"] = &models.Link{
+					URL:        fakeServer.URL + "/path#link1",
+					Count:      tc.expectedDetails.Links["#link1"].Count,
+					Type:       models.LinkTypeInternal,
+					Accessible: true,
+				}
+				delete(tc.expectedDetails.Links, "#link1")
+			}
+			if _, ok := tc.expectedDetails.Links["/link2"]; ok {
+				tc.expectedDetails.Links[fakeServer.URL+"/link2"] = &models.Link{
+					URL:        fakeServer.URL + "/link2",
+					Count:      tc.expectedDetails.Links["/link2"].Count,
+					Type:       models.LinkTypeInternal,
+					Accessible: true,
+				}
+				delete(tc.expectedDetails.Links, "/link2")
+			}
+			if _, ok := tc.expectedDetails.Links["/link3"]; ok {
+				tc.expectedDetails.Links[fakeServer.URL+"/path/link3"] = &models.Link{
+					URL:        fakeServer.URL + "/path/link3",
+					Count:      tc.expectedDetails.Links["/link3"].Count,
+					Type:       models.LinkTypeInternal,
+					Accessible: false,
+				}
+				delete(tc.expectedDetails.Links, "/link3")
+			}
+			suite.Equal(&tc.expectedDetails, details)
+		})
+	}
+}
+
+func (suite *serviceTestSuite) TestGetLoginForm() {
+	testCases := []getDetailsTestCase{
+		{
+			name:     "get html with login form",
+			htmlPath: "testdata/login.html",
+
+			expectedDetails: models.HTMLDetails{
+				HasLoginForm: true,
+			},
+		},
+		{
+			name:     "get html with login form",
+			htmlPath: "testdata/real_login.html",
+
+			expectedDetails: models.HTMLDetails{
+				HasLoginForm: true,
+			},
+		},
+	}
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			analyzer := internal.NewAnalyzer()
+			analyzer.WithSearchSingleElements(analyzer.HasLoginForm)
 			suite.setupTestGetDetails(tc, analyzer)
 		})
 	}
+}
+
+func (suite *serviceTestSuite) setupTestGetDetails(tc getDetailsTestCase, analyzer *internal.Analyzer) {
+	fakeServer := suite.httptestSetup(&setupHTTPTest{
+		statusCode:   http.StatusOK,
+		htmlFilePath: tc.htmlPath,
+		contentType:  "text/html",
+	})
+	defer fakeServer.Close()
+	details, err := analyzer.RunFromURL(fakeServer.URL)
+	suite.NoError(err)
+	suite.Equal(&tc.expectedDetails, details)
 }
 
 type setupHTTPTest struct {
@@ -261,7 +362,10 @@ type setupHTTPTest struct {
 	contentType  string
 }
 
-func (suite *serviceTestSuite) httptestSetup(setup setupHTTPTest) *httptest.Server {
+func (suite *serviceTestSuite) httptestSetup(setup *setupHTTPTest) *httptest.Server {
+	if setup == nil {
+		return nil
+	}
 	resp, err := openFile(setup.htmlFilePath)
 	if err != nil {
 		suite.T().Fatal(err)

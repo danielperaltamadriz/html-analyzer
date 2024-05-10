@@ -38,6 +38,7 @@ type HTMLDetails struct {
 	Title           string
 	HeadingsCounter map[Heading]int
 	Links           Links
+	HasLoginForm    bool
 }
 
 type HTMLVersion struct {
@@ -52,18 +53,19 @@ type Link struct {
 	Accessible bool
 }
 
-func (l Links) AddInternalLink(url string) Links {
-	return l.addLink(url, LinkTypeInternal)
+func (l Links) AddInternalLink(url string, verifyFunc func(l *Link) bool) Links {
+	return l.addLink(url, LinkTypeInternal, verifyFunc)
 }
 
-func (l Links) AddExternalLink(url string) Links {
-	return l.addLink(url, LinkTypeExternal)
+func (l Links) AddExternalLink(url string, verifyFunc func(l *Link) bool) Links {
+	return l.addLink(url, LinkTypeExternal, verifyFunc)
 }
 
-func (l Links) addLink(url string, linkType LinkType) Links {
+func (l Links) addLink(url string, linkType LinkType, verifyFunc func(l *Link) bool) Links {
 	if l == nil {
 		l = make(map[string]*Link)
 	}
+
 	if _, ok := l[url]; ok {
 		l[url].Count++
 		return l
@@ -73,35 +75,62 @@ func (l Links) addLink(url string, linkType LinkType) Links {
 		Count: 1,
 		Type:  linkType,
 	}
-	if linkType == LinkTypeExternal {
-		link.verifyLink()
+	if verifyFunc != nil {
+		link.Accessible = verifyFunc(link)
+	} else {
+		link.Accessible = link.verifyLink()
 	}
 	l[url] = link
 	return l
 }
 
-func (l *Link) verifyLink() {
+func (l *Link) verifyLink() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, l.URL, nil)
 	if err != nil {
-		l.Accessible = false
+		return false
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		l.Accessible = false
+		return false
 	}
 	if resp.StatusCode != http.StatusOK {
-		l.Accessible = false
+		return false
 	}
-
-	l.Accessible = true
+	return true
 }
 
 func (l Links) CountInternalLinks() int {
 	return l.countLinksByType(LinkTypeInternal)
+}
+
+func (l Links) CountInternalLinksAccessible() int {
+	return l.countLinksByTypeAndAccessible(LinkTypeInternal, true)
+}
+
+func (l Links) CountInternalLinksInaccessible() int {
+	return l.countLinksByTypeAndAccessible(LinkTypeInternal, false)
+}
+
+func (l Links) CountExternalLinksAccessible() int {
+	return l.countLinksByTypeAndAccessible(LinkTypeExternal, true)
+}
+
+func (l Links) CountExternalLinksInaccessible() int {
+	return l.countLinksByTypeAndAccessible(LinkTypeExternal, false)
+}
+
+func (l Links) countLinksByTypeAndAccessible(linkType LinkType, isAccessible bool) int {
+	var counter int
+	for _, v := range l {
+		if v.Type == linkType && v.Accessible == isAccessible {
+			counter += v.Count
+		}
+	}
+	return counter
 }
 
 func (l Links) CountExternalLinks() int {
@@ -112,7 +141,7 @@ func (l Links) countLinksByType(linkType LinkType) int {
 	var counter int
 	for _, v := range l {
 		if v.Type == linkType {
-			counter++
+			counter += v.Count
 		}
 	}
 	return counter

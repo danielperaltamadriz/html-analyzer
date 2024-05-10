@@ -4,10 +4,16 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/danielperaltamadriz/home24/internal/models"
 	"golang.org/x/net/html"
+)
+
+const (
+	_defaultTimeout = 5 * time.Second
 )
 
 type SearchElement func(n *html.Node) bool
@@ -21,6 +27,8 @@ type Analyzer struct {
 	searchSingleElements []SearchElement
 	singleSearchesDone   map[int]bool
 	searchManyElements   []SearchElement
+
+	verifyLinkFunc func(l *models.Link) bool
 }
 
 func NewAnalyzer() *Analyzer {
@@ -82,17 +90,18 @@ func (a *Analyzer) RunFromURL(url string) (*models.HTMLDetails, error) {
 func (a *Analyzer) requestHTML() error {
 	ctx := a.ctx
 	if ctx == nil {
-		ctx = context.Background()
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), _defaultTimeout)
+		defer cancel()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.url, nil)
+	resp, err := a.doRequest(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("doRequest: %w", err)
 	}
-	a.req = req
-	resp, err := http.Get(a.url)
-	if err != nil {
-		return fmt.Errorf("failed to get url: %w", err)
+	if resp.StatusCode >= http.StatusBadRequest {
+		return models.NewErrorWithStatusCode(models.ErrInvalidRequest, "invalid status code", resp.StatusCode)
 	}
+
 	defer resp.Body.Close()
 	contentType := resp.Header.Get("Content-Type")
 	if !strings.Contains(contentType, "text/html") {
@@ -105,6 +114,27 @@ func (a *Analyzer) requestHTML() error {
 	}
 	a.node = doc
 	return nil
+}
+
+func (a *Analyzer) doRequest(ctx context.Context) (*http.Response, error) {
+	url, err := url.ParseRequestURI(a.url)
+	if err != nil {
+		return nil, models.NewError(models.ErrTypeInvalidURL, "invalid url")
+	}
+	if url.Scheme == "" || url.Host == "" {
+		return nil, models.NewError(models.ErrTypeInvalidURL, "invalid url")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
+	if err != nil {
+		return nil, models.NewError(models.ErrTypeInvalidURL, "invalid request")
+	}
+	a.req = req
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, models.NewError(models.ErrTypeInvalidURL, "failed to get html file")
+	}
+	return resp, nil
 }
 
 func (a *Analyzer) HTMLVersion(n *html.Node) bool {
@@ -169,18 +199,56 @@ func (a *Analyzer) Headings(n *html.Node) bool {
 	return false
 }
 
+func (a *Analyzer) HasLoginForm(n *html.Node) bool {
+	if n.Type == html.ElementNode && n.Data == "form" {
+		formAnalyzer := NewAnalyzer()
+		var hasPassword bool
+		hasPasswordFunc := func(n *html.Node) bool {
+			if n.Type == html.ElementNode && n.Data == "input" {
+				for _, attr := range n.Attr {
+					if attr.Key == "type" && attr.Val == "password" {
+						hasPassword = true
+						return true
+					}
+				}
+			}
+			return false
+		}
+
+		formAnalyzer.WithSearchSingleElements(hasPasswordFunc)
+		formAnalyzer.Run(n)
+
+		if hasPassword {
+			a.result.HasLoginForm = true
+			return true
+		}
+	}
+	return false
+}
+
 func (a *Analyzer) Links(n *html.Node) bool {
 	if n.Type == html.ElementNode && n.Data == "a" {
 		for _, attr := range n.Attr {
 			if attr.Key == "href" {
 				if strings.HasPrefix(attr.Val, "http") {
-					a.result.Links = a.result.Links.AddExternalLink(attr.Val)
+					a.result.Links = a.result.Links.AddExternalLink(attr.Val, a.verifyLinkFunc)
 					return true
 				}
-				a.result.Links = a.result.Links.AddInternalLink(attr.Val)
+				url := a.req.URL.String() + "/" + attr.Val
+				if strings.HasPrefix(attr.Val, "#") {
+					url = a.req.URL.String() + attr.Val
+				}
+				if strings.HasPrefix(attr.Val, "/") {
+					url = a.req.URL.Scheme + "://" + a.req.Host + attr.Val
+				}
+				a.result.Links = a.result.Links.AddInternalLink(url, a.verifyLinkFunc)
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func (a *Analyzer) WithLinkVerifierFunc(verifyFunc func(l *models.Link) bool) {
+	a.verifyLinkFunc = verifyFunc
 }
