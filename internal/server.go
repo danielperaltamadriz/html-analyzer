@@ -110,7 +110,6 @@ func (a *API) HTMLHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 func mapError(w http.ResponseWriter, err error) {
