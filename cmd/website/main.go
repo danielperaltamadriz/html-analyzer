@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/a-h/templ"
@@ -13,14 +14,44 @@ import (
 	"github.com/danielperaltamadriz/home24/templates"
 )
 
+const (
+	_defaultAPIHost = "http://localhost:8080"
+	_defaultPort    = 3000
+)
+
+type config struct {
+	apiHost string
+	Port    int
+}
+
+func loadConfig() config {
+	apiHost := os.Getenv("API_HOST")
+	if apiHost == "" {
+		apiHost = _defaultAPIHost
+	}
+
+	port := os.Getenv("PORT")
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		portInt = _defaultPort
+	}
+
+	return config{
+		apiHost: apiHost,
+		Port:    portInt,
+	}
+}
+
 func main() {
 	component := templates.Layout()
+
+	cfg := loadConfig()
 
 	http.Handle("/", templ.Handler(component))
 
 	http.HandleFunc("/details", func(w http.ResponseWriter, r *http.Request) {
 		url := r.FormValue("url")
-		apiURL := fmt.Sprintf("http://localhost:8080/v1/analyzes?url=%s", url)
+		apiURL := fmt.Sprintf(cfg.apiHost+"/v1/analyzes?url=%s", url)
 
 		resp, err := http.Get(apiURL)
 		if err != nil {
@@ -94,10 +125,10 @@ func main() {
 
 	})
 
-	fmt.Println("Listening on :3000")
-	err := http.ListenAndServe(":3000", nil)
+	port := strconv.Itoa(cfg.Port)
+	fmt.Println("Listening on :" + port)
+	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		fmt.Printf("Failed to start server: %v", err)
 	}
-
 }
