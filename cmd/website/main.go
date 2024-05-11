@@ -27,6 +27,30 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if resp.StatusCode >= 400 {
+			var errMessage templates.ErrorMessage
+			switch resp.StatusCode {
+			case http.StatusBadRequest:
+				errMessage = templates.ErrorMessage{
+					Message: "The URL requested is not valid",
+				}
+			case http.StatusNotFound:
+				errMessage = templates.ErrorMessage{
+					Message: "The URL requested was not found",
+				}
+			default:
+				errMessage = templates.ErrorMessage{
+					Message: "An error occurred while processing the request with the status code: " + strconv.Itoa(resp.StatusCode),
+				}
+			}
+			errMessage.URL = url
+			component = templates.ErrorsTemplate(errMessage)
+			err = component.Render(context.Background(), w)
+			if err != nil {
+				fmt.Printf("Failed to render component: %v", err)
+			}
+			return
+		}
 		defer resp.Body.Close()
 		var details *internal.DetailsResponse
 		defer resp.Body.Close()

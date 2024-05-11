@@ -19,6 +19,8 @@ templ Layout() {
 
 
 
+
+
 templ Search() {
     <div class="search">
         <div class="frame-1964">
@@ -75,6 +77,24 @@ templ DetailsTemplate(d Details) {
                             <div class="title-4">Has Login form:</div>
                         </div>
                         <div class="value">{ strconv.FormatBool(d.HasLoginForm) }</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+
+templ ErrorsTemplate(e ErrorMessage) {
+    @Layout(){
+        <div class="body-7">
+            <div class="search">
+                <div class="result-url">
+                    <div class="results">Results for: </div><div class="url">{ e.URL }</div>
+                </div>
+                <div class="frame-1965">
+                    <div class="result-url">
+                    <div class="url">{ e.Message }</div>
                     </div>
                 </div>
             </div>

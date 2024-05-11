@@ -20,3 +20,8 @@ type Details struct {
 	Links        Links
 	HasLoginForm bool
 }
+
+type ErrorMessage struct {
+	Message string
+	URL     string
+}
