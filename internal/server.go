@@ -96,6 +96,7 @@ func (a *API) HTMLHandler(w http.ResponseWriter, r *http.Request) {
 	analyzer.WithSearchManyElements(analyzer.Headings, analyzer.Links)
 	details, err := analyzer.RunFromURL(r.FormValue("url"))
 	if err != nil {
+		fmt.Println("Error: ", err)
 		mapError(w, err)
 		return
 	}
@@ -108,6 +109,7 @@ func (a *API) HTMLHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
+		fmt.Println("Failed to encode response: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
