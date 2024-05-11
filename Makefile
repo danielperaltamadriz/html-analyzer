@@ -2,9 +2,13 @@
 .PHONY: precommit
 precommit: build lint test
 
-.PHONY: build
-build:
+.PHONY: build-api
+build-api:
 	go build -o bin/home24 cmd/api/main.go
+
+.PHONY: build-website
+build-website:
+	go build -o bin/website cmd/website/main.go
 
 .PHONY: run-api
 run-api:
