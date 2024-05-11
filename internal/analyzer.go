@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/danielperaltamadriz/home24/internal/models"
@@ -75,6 +76,22 @@ func (a *Analyzer) Run(node *html.Node) models.HTMLDetails {
 		return false
 	}
 	f(node)
+	var wg sync.WaitGroup
+	for _, link := range a.result.Links {
+		if link == nil {
+			continue
+		}
+		wg.Add(1)
+		go func(l *models.Link) {
+			defer wg.Done()
+			if a.verifyLinkFunc != nil {
+				l.Accessible = a.verifyLinkFunc(l)
+				return
+			}
+			l.VerifyLink()
+		}(link)
+	}
+	wg.Wait()
 	return a.result
 }
 
@@ -231,7 +248,7 @@ func (a *Analyzer) Links(n *html.Node) bool {
 		for _, attr := range n.Attr {
 			if attr.Key == "href" {
 				if strings.HasPrefix(attr.Val, "http") {
-					a.result.Links = a.result.Links.AddExternalLink(attr.Val, a.verifyLinkFunc)
+					a.result.Links = a.result.Links.AddExternalLink(attr.Val)
 					return true
 				}
 				url := a.req.URL.String() + "/" + attr.Val
@@ -241,7 +258,7 @@ func (a *Analyzer) Links(n *html.Node) bool {
 				if strings.HasPrefix(attr.Val, "/") {
 					url = a.req.URL.Scheme + "://" + a.req.Host + attr.Val
 				}
-				a.result.Links = a.result.Links.AddInternalLink(url, a.verifyLinkFunc)
+				a.result.Links = a.result.Links.AddInternalLink(url)
 				return true
 			}
 		}

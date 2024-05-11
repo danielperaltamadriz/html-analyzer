@@ -141,7 +141,6 @@ var _ = Describe("Analyze HTML", func() {
 		})
 		When("a complex HTML is requested", func() {
 			It("should return the title and valid status code", func() {
-				Skip("This test is skipped because it depends on the external URL")
 				ts := httptestSetup(setupHTTPTest{
 					statusCode:   http.StatusOK,
 					htmlFilePath: "./testdata/scrapeme.html",

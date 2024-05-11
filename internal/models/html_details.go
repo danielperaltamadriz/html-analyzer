@@ -53,15 +53,15 @@ type Link struct {
 	Accessible bool
 }
 
-func (l Links) AddInternalLink(url string, verifyFunc func(l *Link) bool) Links {
-	return l.addLink(url, LinkTypeInternal, verifyFunc)
+func (l Links) AddInternalLink(url string) Links {
+	return l.addLink(url, LinkTypeInternal)
 }
 
-func (l Links) AddExternalLink(url string, verifyFunc func(l *Link) bool) Links {
-	return l.addLink(url, LinkTypeExternal, verifyFunc)
+func (l Links) AddExternalLink(url string) Links {
+	return l.addLink(url, LinkTypeExternal)
 }
 
-func (l Links) addLink(url string, linkType LinkType, verifyFunc func(l *Link) bool) Links {
+func (l Links) addLink(url string, linkType LinkType) Links {
 	if l == nil {
 		l = make(map[string]*Link)
 	}
@@ -75,32 +75,30 @@ func (l Links) addLink(url string, linkType LinkType, verifyFunc func(l *Link) b
 		Count: 1,
 		Type:  linkType,
 	}
-	if verifyFunc != nil {
-		link.Accessible = verifyFunc(link)
-	} else {
-		link.Accessible = link.verifyLink()
-	}
 	l[url] = link
 	return l
 }
 
-func (l *Link) verifyLink() bool {
+func (l *Link) VerifyLink() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, l.URL, nil)
 	if err != nil {
-		return false
+		l.Accessible = false
+		return
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return false
+		l.Accessible = false
+		return
 	}
 	if resp.StatusCode != http.StatusOK {
-		return false
+		l.Accessible = false
+		return
 	}
-	return true
+	l.Accessible = true
 }
 
 func (l Links) CountInternalLinks() int {
