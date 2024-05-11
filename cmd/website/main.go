@@ -25,7 +25,9 @@ type config struct {
 }
 
 func loadConfig() config {
-	apiHost := os.Getenv("API_HOST")
+	fmt.Println("Loading configuration")
+	apiHost := os.Getenv("SERVER_HOST")
+	fmt.Println("API Host: " + apiHost)
 	if apiHost == "" {
 		apiHost = _defaultAPIHost
 	}

@@ -37,4 +37,22 @@ lint:
 .PHONY: generate
 generate:
 	go install github.com/a-h/templ/cmd/templ@latest && \
-	templ generate 
+	templ generate
+
+
+.PHONY: docker-build
+docker-build:
+	DOCKER_BUILDKIT=1 docker build -t home24 .
+
+
+.PHONY: docker-run-api
+docker-run-api:
+	docker run -p 8080:8080 -t home24
+
+.PHONY: docker-run-website
+docker-run-website:
+	docker run -p 3000:3000 --entrypoint "/website" -t home24
+
+.PHONY: docker-compose-up
+docker-compose-up:
+	docker compose up --build
