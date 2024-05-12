@@ -37,6 +37,7 @@ test-race:
 
 .PHONY: test-ginkgo
 test-ginkgo:
+	go install github.com/onsi/ginkgo/v2/ginkgo &&\
 	ginkgo ./cmd/acceptance_test/
 
 .PHONY: test-bench
@@ -65,7 +66,6 @@ generate:
 .PHONY: docker-build
 docker-build:
 	DOCKER_BUILDKIT=1 docker build -t home24 .
-
 
 .PHONY: docker-run-api
 docker-run-api:

@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	_defaultTimeout = 5 * time.Second
+	_defaultTimeout = 2 * time.Second
 )
 
 type SearchElement func(n *html.Node) bool
@@ -38,10 +38,6 @@ func NewAnalyzer() *Analyzer {
 	}
 }
 
-func (a *Analyzer) RequestURL(url string) {
-	a.url = url
-}
-
 func (a *Analyzer) WithSearchSingleElements(searchElements ...SearchElement) {
 	a.searchSingleElements = searchElements
 }
@@ -50,7 +46,7 @@ func (a *Analyzer) WithSearchManyElements(searchElements ...SearchElement) {
 	a.searchManyElements = searchElements
 }
 
-func (a *Analyzer) Run(node *html.Node) models.HTMLDetails {
+func (a *Analyzer) run(node *html.Node) models.HTMLDetails {
 	var f func(*html.Node) bool
 	f = func(n *html.Node) bool {
 		for i, searchElement := range a.searchSingleElements {
@@ -100,11 +96,11 @@ func (a *Analyzer) ValidateLinks() {
 }
 
 func (a *Analyzer) RunFromURL(url string) (*models.HTMLDetails, error) {
-	a.RequestURL(url)
+	a.url = url
 	if err := a.requestHTML(); err != nil {
 		return nil, err
 	}
-	details := a.Run(a.node)
+	details := a.run(a.node)
 	return &details, nil
 }
 
@@ -237,7 +233,7 @@ func (a *Analyzer) HasLoginForm(n *html.Node) bool {
 		}
 
 		formAnalyzer.WithSearchSingleElements(hasPasswordFunc)
-		formAnalyzer.Run(n)
+		formAnalyzer.run(n)
 
 		if hasPassword {
 			a.result.HasLoginForm = true
