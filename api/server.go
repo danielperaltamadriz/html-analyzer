@@ -53,9 +53,10 @@ func (a *API) HTMLHandler(w http.ResponseWriter, r *http.Request) {
 	analyzer := analyze.NewAnalyzer()
 	analyzer.WithSearchSingleElements(analyzer.HTMLVersion, analyzer.Title, analyzer.HasLoginForm)
 	analyzer.WithSearchManyElements(analyzer.Headings, analyzer.Links)
-	details, err := analyzer.RunFromURL(r.FormValue("url"))
+	url := r.FormValue("url")
+	details, err := analyzer.RunFromURL(url)
 	if err != nil {
-		fmt.Println("Error: ", err)
+		fmt.Printf("analyzer.RunFromURL, url: %s, error: %s \n", url, err.Error())
 		mapError(w, err)
 		return
 	}
@@ -68,7 +69,7 @@ func (a *API) HTMLHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		fmt.Println("Failed to encode response: ", err)
+		fmt.Println("failed to encode response: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
