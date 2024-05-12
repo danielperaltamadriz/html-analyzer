@@ -94,7 +94,7 @@ func (l *Link) VerifyLink() {
 		l.Accessible = false
 		return
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode >= 400 {
 		l.Accessible = false
 		return
 	}

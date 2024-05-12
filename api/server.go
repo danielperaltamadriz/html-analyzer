@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/danielperaltamadriz/home24/analyze"
+	"github.com/danielperaltamadriz/html-analyzer/analyze"
 )
 
 const (

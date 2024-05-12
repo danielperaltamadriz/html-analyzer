@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/danielperaltamadriz/home24/api"
+	"github.com/danielperaltamadriz/html-analyzer/api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielperaltamadriz/home24/analyze"
-	"github.com/danielperaltamadriz/home24/analyze/models"
+	"github.com/danielperaltamadriz/html-analyzer/analyze"
+	"github.com/danielperaltamadriz/html-analyzer/analyze/models"
 	"github.com/stretchr/testify/suite"
 )
 

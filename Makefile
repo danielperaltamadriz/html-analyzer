@@ -7,7 +7,7 @@ precommit: build-api build-website lint test test-race
 
 .PHONY: build-api
 build-api:
-	go build -o bin/home24 cmd/api/main.go
+	go build -o bin/api cmd/api/main.go
 
 .PHONY: build-website
 build-website:
@@ -65,15 +65,15 @@ generate:
 
 .PHONY: docker-build
 docker-build:
-	DOCKER_BUILDKIT=1 docker build -t home24 .
+	DOCKER_BUILDKIT=1 docker build -t html-analyzer .
 
 .PHONY: docker-run-api
 docker-run-api:
-	docker run -p 8080:8080 -t home24
+	docker run -p 8080:8080 -t html-analyzer
 
 .PHONY: docker-run-website
 docker-run-website:
-	docker run -p 3000:3000 --entrypoint "/website" -t home24
+	docker run -p 3000:3000 --entrypoint "/website" -t html-analyzer
 
 .PHONY: docker-compose-up
 docker-compose-up:

@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/danielperaltamadriz/home24/analyze/models"
+	"github.com/danielperaltamadriz/html-analyzer/analyze/models"
 	"golang.org/x/net/html"
 )
 
 const (
-	_defaultTimeout = 2 * time.Second
+	_defaultTimeout = 5 * time.Second
 )
 
 type SearchElement func(n *html.Node) bool
@@ -72,27 +72,8 @@ func (a *Analyzer) run(node *html.Node) models.HTMLDetails {
 		return false
 	}
 	f(node)
-	a.ValidateLinks()
+	a.verifyLinks()
 	return a.result
-}
-
-func (a *Analyzer) ValidateLinks() {
-	var wg sync.WaitGroup
-	for _, link := range a.result.Links {
-		if link == nil {
-			continue
-		}
-		wg.Add(1)
-		go func(l *models.Link) {
-			defer wg.Done()
-			if a.verifyLinkFunc != nil {
-				l.Accessible = a.verifyLinkFunc(l)
-				return
-			}
-			l.VerifyLink()
-		}(link)
-	}
-	wg.Wait()
 }
 
 func (a *Analyzer) RunFromURL(url string) (*models.HTMLDetails, error) {
@@ -264,6 +245,25 @@ func (a *Analyzer) Links(n *html.Node) bool {
 		}
 	}
 	return false
+}
+
+func (a *Analyzer) verifyLinks() {
+	var wg sync.WaitGroup
+	for _, link := range a.result.Links {
+		if link == nil {
+			continue
+		}
+		wg.Add(1)
+		go func(l *models.Link) {
+			defer wg.Done()
+			if a.verifyLinkFunc != nil {
+				l.Accessible = a.verifyLinkFunc(l)
+				return
+			}
+			l.VerifyLink()
+		}(link)
+	}
+	wg.Wait()
 }
 
 func (a *Analyzer) WithLinkVerifierFunc(verifyFunc func(l *models.Link) bool) {

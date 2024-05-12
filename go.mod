@@ -1,4 +1,4 @@
-module github.com/danielperaltamadriz/home24
+module github.com/danielperaltamadriz/html-analyzer
 
 go 1.22
 
