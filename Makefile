@@ -1,6 +1,9 @@
 
 .PHONY: precommit
-precommit: build lint test
+precommit: build-api build-website lint test test-race
+
+
+# Build
 
 .PHONY: build-api
 build-api:
@@ -10,6 +13,9 @@ build-api:
 build-website:
 	go build -o bin/website cmd/website/main.go
 
+
+# Run
+
 .PHONY: run-api
 run-api:
 	go run cmd/api/main.go
@@ -18,9 +24,16 @@ run-api:
 run-website: generate
 	go run cmd/website/main.go	
 
+
+# Test
+
 .PHONY: test
 test:
 	go test ./...
+
+.PHONY: test-race
+test-race:
+	go test -race ./...
 
 .PHONY: test-ginkgo
 test-ginkgo:
@@ -30,15 +43,24 @@ test-ginkgo:
 test-bench:
 	go test -bench=. ./...
 
+
+# Lint
+
 .PHONY: lint
 lint:
 	golangci-lint run
+
+
+# Generate
 
 .PHONY: generate
 generate:
 	go install github.com/a-h/templ/cmd/templ@latest && \
 	templ generate
 
+
+
+# Docker
 
 .PHONY: docker-build
 docker-build:

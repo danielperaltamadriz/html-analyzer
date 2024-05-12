@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/a-h/templ"
-	"github.com/danielperaltamadriz/home24/internal"
+	"github.com/danielperaltamadriz/home24/api"
 	"github.com/danielperaltamadriz/home24/templates"
 )
 
@@ -85,7 +85,7 @@ func main() {
 			return
 		}
 		defer resp.Body.Close()
-		var details *internal.DetailsResponse
+		var details *api.DetailsResponse
 		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {

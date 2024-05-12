@@ -1,37 +1,11 @@
-package internal
+package api
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
-	"github.com/danielperaltamadriz/home24/internal/models"
+	"github.com/danielperaltamadriz/home24/analyze/models"
 )
-
-const (
-	_defaultPort = 8080
-)
-
-type API struct {
-	server *http.Server
-}
-
-type APIConfig struct {
-	Port int
-}
-
-func NewAPI(cfg APIConfig) *API {
-	if cfg.Port == 0 {
-		cfg.Port = _defaultPort
-	}
-	return &API{
-		server: &http.Server{
-			Addr: fmt.Sprintf(":%d", cfg.Port),
-		},
-	}
-}
 
 type VersionResponse struct {
 	Number   string `json:"number"`
@@ -70,48 +44,7 @@ type DetailsResponse struct {
 	Version      *VersionResponse `json:"version,omitempty"`
 	Headings     HeadingResponse  `json:"headings"`
 	Links        LinksResponse    `json:"links"`
-	HasLoginForm bool             `json:"has_login_form"`
-}
-
-func (a *API) Shutdown() error {
-	fmt.Println("Shutting down server")
-	return a.server.Shutdown(context.Background())
-}
-
-func (a *API) Start() error {
-	fmt.Println("Starting server on port 8080")
-	http.HandleFunc("/v1/analyzes", a.HTMLHandler)
-	err := a.server.ListenAndServe()
-	if err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
-	}
-	return nil
-}
-
-func (a *API) HTMLHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Request received")
-	w.Header().Set("Content-Type", "application/json")
-	analyzer := NewAnalyzer()
-	analyzer.WithSearchSingleElements(analyzer.HTMLVersion, analyzer.Title, analyzer.HasLoginForm)
-	analyzer.WithSearchManyElements(analyzer.Headings, analyzer.Links)
-	details, err := analyzer.RunFromURL(r.FormValue("url"))
-	if err != nil {
-		fmt.Println("Error: ", err)
-		mapError(w, err)
-		return
-	}
-	response := DetailsResponse{
-		Title:        details.Title,
-		Version:      mapVersion(details.Version),
-		Headings:     mapHeadings(details.HeadingsCounter),
-		Links:        mapLinks(details.Links),
-		HasLoginForm: details.HasLoginForm,
-	}
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		fmt.Println("Failed to encode response: ", err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	HasLoginForm bool             `json:"hasLoginForm"`
 }
 
 func mapError(w http.ResponseWriter, err error) {

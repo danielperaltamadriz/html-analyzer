@@ -1,4 +1,4 @@
-package internal_test
+package analyze_test
 
 import (
 	"net/http"
@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielperaltamadriz/home24/internal"
-	"github.com/danielperaltamadriz/home24/internal/models"
+	"github.com/danielperaltamadriz/home24/analyze"
+	"github.com/danielperaltamadriz/home24/analyze/models"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -44,7 +44,7 @@ func (suite *serviceTestSuite) TestGetValidHTMLUsingRealServer() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			analyzer := internal.NewAnalyzer()
+			analyzer := analyze.NewAnalyzer()
 			result, err := analyzer.RunFromURL(tc.inputURL)
 			suite.NoError(err)
 			suite.NotNil(result)
@@ -71,7 +71,7 @@ func (suite *serviceTestSuite) TestGetValidHTMLUsingFakeServer() {
 		suite.Run(tc.name, func() {
 			fakeServer := suite.httptestSetup(tc.fakeServerSetup)
 			defer fakeServer.Close()
-			analyzer := internal.NewAnalyzer()
+			analyzer := analyze.NewAnalyzer()
 			result, err := analyzer.RunFromURL(fakeServer.URL)
 			suite.NoError(err)
 			suite.NotNil(result)
@@ -118,7 +118,7 @@ func (suite *serviceTestSuite) TestGetInvalidHTML() {
 				defer fakeServer.Close()
 				url = fakeServer.URL
 			}
-			analyzer := internal.NewAnalyzer()
+			analyzer := analyze.NewAnalyzer()
 			result, err := analyzer.RunFromURL(url)
 			suite.Nil(result)
 			suite.ErrorContains(err, tc.errMessageString)
@@ -147,7 +147,7 @@ func (suite *serviceTestSuite) TestGetTitle() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			analyzer := internal.NewAnalyzer()
+			analyzer := analyze.NewAnalyzer()
 			analyzer.WithSearchSingleElements(analyzer.Title)
 			suite.setupTestGetDetails(tc, analyzer)
 		})
@@ -175,7 +175,7 @@ func (suite *serviceTestSuite) TestGetHTMLVersion() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			analyzer := internal.NewAnalyzer()
+			analyzer := analyze.NewAnalyzer()
 			analyzer.WithSearchSingleElements(analyzer.HTMLVersion)
 			suite.setupTestGetDetails(tc, analyzer)
 		})
@@ -203,7 +203,7 @@ func (suite *serviceTestSuite) TestGetHeadings() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			analyzer := internal.NewAnalyzer()
+			analyzer := analyze.NewAnalyzer()
 			analyzer.WithSearchManyElements(analyzer.Headings)
 			suite.setupTestGetDetails(tc, analyzer)
 		})
@@ -273,7 +273,7 @@ func (suite *serviceTestSuite) TestGetLinks() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			analyzer := internal.NewAnalyzer()
+			analyzer := analyze.NewAnalyzer()
 			analyzer.WithSearchManyElements(analyzer.Links)
 			analyzer.WithLinkVerifierFunc(fakeLinkVerifierFunc)
 			fakeServer := suite.httptestSetup(&setupHTTPTest{
@@ -337,14 +337,14 @@ func (suite *serviceTestSuite) TestGetLoginForm() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			analyzer := internal.NewAnalyzer()
+			analyzer := analyze.NewAnalyzer()
 			analyzer.WithSearchSingleElements(analyzer.HasLoginForm)
 			suite.setupTestGetDetails(tc, analyzer)
 		})
 	}
 }
 
-func (suite *serviceTestSuite) setupTestGetDetails(tc getDetailsTestCase, analyzer *internal.Analyzer) {
+func (suite *serviceTestSuite) setupTestGetDetails(tc getDetailsTestCase, analyzer *analyze.Analyzer) {
 	fakeServer := suite.httptestSetup(&setupHTTPTest{
 		statusCode:   http.StatusOK,
 		htmlFilePath: tc.htmlPath,

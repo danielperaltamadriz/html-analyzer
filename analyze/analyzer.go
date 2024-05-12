@@ -1,4 +1,4 @@
-package internal
+package analyze
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/danielperaltamadriz/home24/internal/models"
+	"github.com/danielperaltamadriz/home24/analyze/models"
 	"golang.org/x/net/html"
 )
 
@@ -76,6 +76,11 @@ func (a *Analyzer) Run(node *html.Node) models.HTMLDetails {
 		return false
 	}
 	f(node)
+	a.ValidateLinks()
+	return a.result
+}
+
+func (a *Analyzer) ValidateLinks() {
 	var wg sync.WaitGroup
 	for _, link := range a.result.Links {
 		if link == nil {
@@ -92,7 +97,6 @@ func (a *Analyzer) Run(node *html.Node) models.HTMLDetails {
 		}(link)
 	}
 	wg.Wait()
-	return a.result
 }
 
 func (a *Analyzer) RunFromURL(url string) (*models.HTMLDetails, error) {

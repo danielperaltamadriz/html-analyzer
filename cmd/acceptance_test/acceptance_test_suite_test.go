@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/danielperaltamadriz/home24/internal"
+	"github.com/danielperaltamadriz/home24/api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -24,7 +24,7 @@ var _ = Describe("Analyze HTML", func() {
 	var server *ghttp.Server
 	BeforeEach(func() {
 		server = ghttp.NewServer()
-		apiServer := internal.NewAPI(internal.APIConfig{})
+		apiServer := api.NewAPI(api.APIConfig{})
 		server.AppendHandlers(
 			apiServer.HTMLHandler,
 		)
@@ -69,7 +69,7 @@ var _ = Describe("Analyze HTML", func() {
 
 	Context("Given a valid URL", func() {
 		When("a simple HTML is requested", func() {
-			var details *internal.DetailsResponse
+			var details *api.DetailsResponse
 			var url string
 			BeforeEach(func() {
 				ts := httptestSetup(setupHTTPTest{
@@ -104,7 +104,7 @@ var _ = Describe("Analyze HTML", func() {
 
 			It("should return the internal links", func() {
 				Expect(details.Links.Internal.Total).To(Equal(2))
-				Expect(mapLinkDetailsToMap(details.Links.Internal.LinkDetails)).To(Equal(mapLinkDetailsToMap([]internal.LinkDetailResponse{
+				Expect(mapLinkDetailsToMap(details.Links.Internal.LinkDetails)).To(Equal(mapLinkDetailsToMap([]api.LinkDetailResponse{
 					{
 						URL:          url + "#link1",
 						Count:        1,
@@ -120,7 +120,7 @@ var _ = Describe("Analyze HTML", func() {
 
 			It("should return the external links counter", func() {
 				Expect(details.Links.External.Total).To(Equal(2))
-				Expect(mapLinkDetailsToMap(details.Links.External.LinkDetails)).To(Equal(mapLinkDetailsToMap([]internal.LinkDetailResponse{
+				Expect(mapLinkDetailsToMap(details.Links.External.LinkDetails)).To(Equal(mapLinkDetailsToMap([]api.LinkDetailResponse{
 					{
 						URL:          "https://www.google.com",
 						Count:        1,
@@ -148,7 +148,7 @@ var _ = Describe("Analyze HTML", func() {
 				defer ts.Close()
 
 				resp, _ := http.Get(server.URL() + "?url=" + ts.URL)
-				var details *internal.DetailsResponse
+				var details *api.DetailsResponse
 				defer resp.Body.Close()
 				body, _ := io.ReadAll(resp.Body)
 				json.Unmarshal(body, &details) // nolint: errcheck
@@ -160,8 +160,8 @@ var _ = Describe("Analyze HTML", func() {
 	})
 })
 
-func mapLinkDetailsToMap(links []internal.LinkDetailResponse) map[string]internal.LinkDetailResponse {
-	linkDetails := make(map[string]internal.LinkDetailResponse)
+func mapLinkDetailsToMap(links []api.LinkDetailResponse) map[string]api.LinkDetailResponse {
+	linkDetails := make(map[string]api.LinkDetailResponse)
 	for _, link := range links {
 		linkDetails[link.URL] = link
 	}
