@@ -27,5 +27,8 @@ jobs:
     - name: Build Website
       run: make build-website
 
+    - name: Linter
+      run: make lint
+
     - name: Test
       run: make test
