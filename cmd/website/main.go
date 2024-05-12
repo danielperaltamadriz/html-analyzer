@@ -10,8 +10,8 @@ import (
 	"strconv"
 
 	"github.com/a-h/templ"
-	"github.com/danielperaltamadriz/home24/api"
-	"github.com/danielperaltamadriz/home24/templates"
+	"github.com/danielperaltamadriz/html-analyzer/api"
+	"github.com/danielperaltamadriz/html-analyzer/templates"
 )
 
 const (

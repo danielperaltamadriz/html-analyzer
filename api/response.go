@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/danielperaltamadriz/home24/analyze/models"
+	"github.com/danielperaltamadriz/html-analyzer/analyze/models"
 )
 
 type VersionResponse struct {

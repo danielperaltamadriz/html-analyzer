@@ -8,7 +8,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/danielperaltamadriz/home24/api"
+	"github.com/danielperaltamadriz/html-analyzer/api"
 )
 
 func main() {
