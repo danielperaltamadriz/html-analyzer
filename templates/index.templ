@@ -1,0 +1,103 @@
+package templates
+
+import "strconv"
+
+
+templ Layout() {
+   <html>
+    <head>
+        <link href="https://assets-global.website-files.com/64e3b0970855b430d5a69c38/css/caro-avila.webflow.ad32549cc.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous"/>
+        </head>
+        <body>
+            <div class="body-7">
+                @Search()
+                { children... }
+            </div>
+        </body>
+    </html>
+}
+
+
+
+
+
+templ Search() {
+    <div class="search">
+        <div class="frame-1964">
+            <div class="text-110">Webpage Analyser</div>
+        </div>
+        <form class="frame-1964" hx-get="/details" method="GET" action="/details" hx-target="#grid">
+            <input type="text" class="textbox-2" name="url" ></input>
+            <button class="button-2 w-button" type="submit">Analyse</button>
+        </form>
+    </div>
+}
+
+templ DetailsTemplate(d Details) {
+    @Layout(){
+        <div class="body-7">
+            <div class="search">
+                <div class="result-url">
+                    <div class="results">Results for: </div><div class="url">{ d.URL }</div>
+                </div>
+                <div class="frame-1965">
+                    <div class="result-url">
+                        <div class="div-block-9">
+                            <div class="div-block-13">
+                                <div class="title-4">HTLM version:</div>
+                            </div>
+                        </div>
+                        <div class="value">{ d.HTMLVersion }</div>
+                    </div>
+                    <div class="header">
+                        <div class="div-block-10">
+                            <div class="title-4">Page title:</div>
+                        </div>
+                        <div class="value">{ d.Title }</div>
+                    </div>
+                    <div class="result-url">
+                        <div class="div-block-11">
+                            <div class="title-4">Headings:</div>
+                        </div>
+                        <div class="headers">
+                        for _, h := range d.Headings {
+                            <div class="h1-4"><div class="title-5">{ h.Key }:</div><div class="value">{ h.Count }</div></div>
+                        }
+                        </div>
+                    </div>
+                    <div class="result-url"><div class="div-block-12">
+                        <div class="title-4">Links:</div></div><div class="headers">
+                            <div class="h1-4"><div class="title-5">Internal:</div><div class="value">{ strconv.Itoa(d.Links.InternalTotal) }</div></div>
+                            <div class="h1-4"><div class="title-5">External:</div><div class="value">{ strconv.Itoa(d.Links.ExternalTotal) }</div></div>
+                            <div class="h1-4"><div class="title-5">Inaccessible:</div><div class="value">{ strconv.Itoa(d.Links.InaccessibleTotal) }</div></div>
+                        </div>
+                    </div>
+                    <div class="result-url">
+                        <div class="div-block-15">
+                            <div class="title-4">Has Login form:</div>
+                        </div>
+                        <div class="value">{ strconv.FormatBool(d.HasLoginForm) }</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+
+templ ErrorsTemplate(e ErrorMessage) {
+    @Layout(){
+        <div class="body-7">
+            <div class="search">
+                <div class="result-url">
+                    <div class="results">Results for: </div><div class="url">{ e.URL }</div>
+                </div>
+                <div class="frame-1965">
+                    <div class="result-url">
+                    <div class="url">{ e.Message }</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
